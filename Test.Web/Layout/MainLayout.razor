@@ -1,0 +1,70 @@
+@inherits LayoutComponentBase
+@inject ICurrentUserService CurrentUserService
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <FluentPersona Name="@GetDisplayName(context.User)" Initials="@GetInitials(GetDisplayName(context.User))" />
+                </Authorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @if (_loading)
+            {
+                <FluentProgressRing />
+            }
+            else if (_me is null || !_me.IsAuthorized)
+            {
+                <FluentMessageBar Intent="MessageIntent.Error" Title="Kein Zugriff">
+                    Sie sind angemeldet, haben aber keine Berechtigung für diese Anwendung.
+                    Bitte wenden Sie sich an den Support.
+                </FluentMessageBar>
+            }
+            else
+            {
+                @Body
+            }
+        </article>
+    </main>
+</div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />
+
+@code {
+    private MeResponse? _me;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _me = await CurrentUserService.GetCurrentUserAsync();
+        _loading = false;
+    }
+
+    private static string GetDisplayName(ClaimsPrincipal user) =>
+        user.FindFirst("name")?.Value
+        ?? user.FindFirst("preferred_username")?.Value
+        ?? user.Identity?.Name
+        ?? "Unbekannt";
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split([' ', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => (parts[0][..1] + parts[^1][..1]).ToUpperInvariant()
+        };
+    }
+}
