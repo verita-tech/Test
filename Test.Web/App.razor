@@ -3,8 +3,17 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
-                    <RedirectToLogin />
+                    @* Unauthenticated users never get this far: the backend redirects them to
+                       Keycloak before the app is even served. This covers the authenticated but
+                       insufficiently privileged case. *@
+                    <FluentMessageBar Intent="MessageIntent.Error" Title="Kein Zugriff">
+                        Sie sind angemeldet, haben aber keine Berechtigung für diese Seite.
+                        Bitte wenden Sie sich an den Support.
+                    </FluentMessageBar>
                 </NotAuthorized>
+                <Authorizing>
+                    <FluentProgressRing />
+                </Authorizing>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>

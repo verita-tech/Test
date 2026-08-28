@@ -11,6 +11,9 @@
             <AuthorizeView>
                 <Authorized>
                     <FluentPersona Name="@GetDisplayName(context.User)" Initials="@GetInitials(GetDisplayName(context.User))" />
+                    @* Full page load on purpose: /signout is a backend endpoint that clears the
+                       session cookie and signs the user out at Keycloak. *@
+                    <FluentAnchor Href="signout" Appearance="Appearance.Stealth">Abmelden</FluentAnchor>
                 </Authorized>
             </AuthorizeView>
         </div>
