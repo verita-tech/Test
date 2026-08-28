@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -137,29 +136,19 @@ app.UseStaticFiles();
 
 app.UseAuthorization();
 
-// Authenticated-only endpoint (no AdAccess policy) so the Blazor app can show
-// "signed in as X but not authorized" instead of a bare 403 without context.
-// The claims it returns are what the client's AuthenticationStateProvider builds its principal from.
-app.MapGet("/api/me", (ClaimsPrincipal user, IAdAccessChecker checker) =>
-{
-    var displayName = user.FindFirst("name")?.Value ?? user.FindFirst("preferred_username")?.Value ?? "Unbekannt";
-
-    string[] exposedClaimTypes = ["name", "preferred_username", "email", "groups"];
-    var claims = user.Claims
-        .Where(c => exposedClaimTypes.Contains(c.Type))
-        .Select(c => new ClaimDto(c.Type, c.Value))
-        .ToArray();
-
-    return Results.Ok(new MeResponse(displayName, checker.IsAuthorized(user), claims));
-}).RequireAuthorization();
-
 // Deliberately no sign-out endpoint: the user is always signed in. Ending the session would only
 // bounce straight back through the authentication gate into a new one.
 
 app.MapControllers();
+
+// An unknown route under /api must fail as an API call. Without this it would drop through to the
+// SPA fallback below and answer a typo'd endpoint with 200 and index.html instead of a 404. Literal
+// controller routes win over this catch-all, so only genuinely unmatched /api paths land here.
+app.Map("/api/{**path}", () => Results.NotFound()).ExcludeFromDescription();
+
+// Client-side routing: deep links such as /weather must return the app shell so the Blazor router
+// can take over. The default "{*path:nonfile}" pattern keeps paths that look like files out of it,
+// so a missing .js or .css still returns a real 404 rather than HTML.
 app.MapFallbackToFile("index.html");
 
 app.Run();
-
-public sealed record ClaimDto(string Type, string Value);
-public sealed record MeResponse(string DisplayName, bool IsAuthorized, IReadOnlyList<ClaimDto> Claims);

@@ -104,10 +104,31 @@ Domänen-Rechner melden sich damit ohne Eingabemaske an.
 | Pfad | Auth | Zweck |
 |---|---|---|
 | `/` und alle SPA-Routen | Cookie (erzwungen) | Blazor-App |
-| `/api/me` | Cookie oder Bearer | Anzeigename, Berechtigungsstatus, Claims für den `AuthenticationStateProvider` |
-| `/api/weatherforecast` | Cookie oder Bearer, Policy `AdAccess` | Beispiel-API |
+| `/api/me` | Cookie oder Bearer | `MeController` — Anzeigename, Berechtigungsstatus, Claims für den `AuthenticationStateProvider` |
+| `/api/weatherforecast` | Cookie oder Bearer, Policy `AdAccess` | `WeatherForecastController` — Beispiel-API |
+| `/api/<unbekannt>` | — | **404**, damit ein Tippfehler nicht als SPA-Shell zurückkommt |
 | `/signin-oidc` | anonym | OIDC-Callback, schließt die Anmeldung ab |
 | `/signout-oidc` | anonym | Front-Channel-Logout, wenn **Keycloak** die SSO-Sitzung beendet; der nächste Aufruf meldet den Benutzer still wieder an |
+
+## Routing: Web API mit Controllern plus SPA-Fallback
+
+`Test.Web.Api` ist eine ganz normale ASP.NET-Core-Web-API: Die gesamte API-Oberfläche liegt in
+Controllern unter `Controllers/` (`MeController`, `WeatherForecastController`), registriert über
+`AddControllers()`/`MapControllers()`. Nichts an der Keycloak-Anbindung hängt an Minimal APIs.
+
+Dazu kommt `MapFallbackToFile("index.html")`. Das ist kein Notbehelf, sondern der vorgesehene
+Mechanismus für clientseitiges Routing: Ein Deep Link wie `/weather` existiert serverseitig nicht,
+der Browser muss trotzdem die App-Shell bekommen, damit der Blazor-Router die Route übernimmt. Ohne
+Fallback liefert ein Reload auf `/weather` einen 404.
+
+Drei Dinge begrenzen den Fallback, damit er nichts verschluckt:
+
+- Er greift **nur nach** allen Controller-Routen — Endpunkte haben immer Vorrang.
+- Das Standardmuster `{*path:nonfile}` schließt Pfade aus, die wie Dateien aussehen. Eine fehlende
+  `.js` oder `.css` liefert also weiterhin einen echten 404 und nicht HTML mit Status 200.
+- `app.Map("/api/{**path}", ...)` fängt unbekannte API-Pfade vorher ab und antwortet mit 404.
+  Sonst bekäme ein vertippter Endpunkt die SPA-Shell zurück, und der Client scheiterte an einem
+  JSON-Parse-Fehler statt an einem klaren 404.
 
 `/api/*` antwortet unangemeldet mit **401**, nicht mit einem Redirect — nur so kann der
 `UnauthorizedRedirectHandler` im Client eine abgelaufene Session erkennen und per vollem Reload eine
