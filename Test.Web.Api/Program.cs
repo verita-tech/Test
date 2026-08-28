@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -82,7 +81,6 @@ builder.Services.AddAuthentication(options =>
         options.GetClaimsFromUserInfoEndpoint = false;
 
         options.CallbackPath = "/signin-oidc";
-        options.SignedOutCallbackPath = "/signout-callback-oidc";
 
         options.Scope.Clear();
         options.Scope.Add("openid");
@@ -155,12 +153,8 @@ app.MapGet("/api/me", (ClaimsPrincipal user, IAdAccessChecker checker) =>
     return Results.Ok(new MeResponse(displayName, checker.IsAuthorized(user), claims));
 }).RequireAuthorization();
 
-// Signs out locally and at Keycloak (RP-initiated logout), then lands back on the app, which
-// triggers a fresh login.
-app.MapGet("/signout", () => Results.SignOut(
-    new AuthenticationProperties { RedirectUri = "/" },
-    new[] { CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme }))
-    .AllowAnonymous();
+// Deliberately no sign-out endpoint: the user is always signed in. Ending the session would only
+// bounce straight back through the authentication gate into a new one.
 
 app.MapControllers();
 app.MapFallbackToFile("index.html");

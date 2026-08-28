@@ -15,6 +15,11 @@ Browser ──HttpOnly-Cookie──> Test.Web.Api ──code + client_secret─�
 Static-File-Handling, weil Static Files keine Autorisierung ausführen. Ein unangemeldeter Aufruf
 wird zu Keycloak umgeleitet, *bevor* `index.html` oder `/_framework/*` ausgeliefert werden.
 
+**Es gibt bewusst weder An- noch Abmeldung in der Oberfläche.** Kein Login-Formular, kein
+Abmelden-Knopf, keinen `/signout`-Endpunkt. Die Anmeldung passiert automatisch beim ersten Aufruf
+(per Kerberos/SPNEGO ohne jede Eingabe), und eine abgelaufene Sitzung wird ebenso automatisch
+erneuert. Eine Abmeldung würde den Benutzer nur unmittelbar in eine neue Sitzung zurückwerfen.
+
 Parallel akzeptiert die API weiterhin **JWT-Bearer-Token** für Dienst-zu-Dienst-Aufrufe. Beide
 Pfade landen in derselben `AdAccess`-Policy (`AdAccessChecker`), die AD-Gruppen und UPNs prüft.
 
@@ -59,8 +64,9 @@ jeder Browser herunter.
 | Standard flow | ON |
 | Direct access grants | OFF |
 | Valid redirect URIs | `https://<host>/signin-oidc` |
-| Valid post logout redirect URIs | `https://<host>/signout-callback-oidc` |
 | Web origins | leer — die App läuft im selben Origin, CORS wird nicht gebraucht |
+
+Eine Post-Logout-Redirect-URI wird nicht gebraucht, weil die Anwendung keine Abmeldung anbietet.
 
 Für lokale Entwicklung `<host>` = `localhost:7247`.
 
@@ -100,8 +106,8 @@ Domänen-Rechner melden sich damit ohne Eingabemaske an.
 | `/` und alle SPA-Routen | Cookie (erzwungen) | Blazor-App |
 | `/api/me` | Cookie oder Bearer | Anzeigename, Berechtigungsstatus, Claims für den `AuthenticationStateProvider` |
 | `/api/weatherforecast` | Cookie oder Bearer, Policy `AdAccess` | Beispiel-API |
-| `/signout` | anonym | Abmeldung lokal **und** bei Keycloak (RP-initiated logout) |
-| `/signin-oidc`, `/signout-callback-oidc` | anonym | OIDC-Callbacks |
+| `/signin-oidc` | anonym | OIDC-Callback, schließt die Anmeldung ab |
+| `/signout-oidc` | anonym | Front-Channel-Logout, wenn **Keycloak** die SSO-Sitzung beendet; der nächste Aufruf meldet den Benutzer still wieder an |
 
 `/api/*` antwortet unangemeldet mit **401**, nicht mit einem Redirect — nur so kann der
 `UnauthorizedRedirectHandler` im Client eine abgelaufene Session erkennen und per vollem Reload eine

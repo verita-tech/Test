@@ -10,10 +10,9 @@
         <div class="top-row px-4">
             <AuthorizeView>
                 <Authorized>
+                    @* Shows who is signed in. No sign-out control on purpose: the session is
+                       permanent by design, ending it would only trigger an immediate new one. *@
                     <FluentPersona Name="@GetDisplayName(context.User)" Initials="@GetInitials(GetDisplayName(context.User))" />
-                    @* Full page load on purpose: /signout is a backend endpoint that clears the
-                       session cookie and signs the user out at Keycloak. *@
-                    <FluentAnchor Href="signout" Appearance="Appearance.Stealth">Abmelden</FluentAnchor>
                 </Authorized>
             </AuthorizeView>
         </div>

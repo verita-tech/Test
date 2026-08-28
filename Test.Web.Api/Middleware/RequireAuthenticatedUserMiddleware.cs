@@ -12,13 +12,16 @@ namespace Test.Web.Api.Middleware;
 /// </summary>
 public sealed class RequireAuthenticatedUserMiddleware(RequestDelegate next)
 {
-    /// <summary>Endpoints that must stay reachable anonymously, otherwise the login itself deadlocks.</summary>
+    /// <summary>
+    /// Endpoints that must stay reachable anonymously, otherwise the login itself deadlocks:
+    /// the OIDC callback that completes the sign-in, and the front-channel logout Keycloak calls
+    /// when it ends the SSO session (the next request then silently signs the user in again).
+    /// There is no sign-out endpoint of our own - the user is always signed in.
+    /// </summary>
     private static readonly string[] AnonymousPaths =
     [
         "/signin-oidc",
         "/signout-oidc",
-        "/signout-callback-oidc",
-        "/signout",
         "/health"
     ];
 
