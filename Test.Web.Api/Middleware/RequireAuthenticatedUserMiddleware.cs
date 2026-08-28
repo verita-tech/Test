@@ -10,7 +10,7 @@ namespace Test.Web.Api.Middleware;
 /// without this gate index.html and /_framework/* would be downloadable anonymously.
 /// Runs after UseAuthentication() and before UseBlazorFrameworkFiles()/UseStaticFiles().
 /// </summary>
-public sealed class RequireAuthenticatedUserMiddleware(RequestDelegate next)
+public sealed class RequireAuthenticatedUserMiddleware(RequestDelegate next, IWebHostEnvironment environment)
 {
     /// <summary>
     /// Endpoints that must stay reachable anonymously, otherwise the login itself deadlocks:
@@ -25,9 +25,21 @@ public sealed class RequireAuthenticatedUserMiddleware(RequestDelegate next)
         "/health"
     ];
 
+    /// <summary>
+    /// Injected by dotnet watch and Visual Studio to drive hot reload and browser refresh. A
+    /// redirect to Keycloak here would break the reload loop, so they stay open - but only in
+    /// development, where these paths exist in the first place.
+    /// </summary>
+    private static readonly string[] DevelopmentOnlyAnonymousPaths =
+    [
+        "/_framework/aspnetcore-browser-refresh.js",
+        "/_framework/blazor-hotreload.js",
+        "/_vs/browserLink"
+    ];
+
     public async Task InvokeAsync(HttpContext context)
     {
-        if (context.User.Identity is { IsAuthenticated: true } || IsAnonymousPath(context.Request.Path))
+        if (context.User.Identity is { IsAuthenticated: true } || IsAllowedAnonymously(context.Request.Path))
         {
             await next(context);
             return;
@@ -53,6 +65,10 @@ public sealed class RequireAuthenticatedUserMiddleware(RequestDelegate next)
         await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme);
     }
 
-    private static bool IsAnonymousPath(PathString path) =>
-        AnonymousPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+    private bool IsAllowedAnonymously(PathString path) =>
+        Matches(AnonymousPaths, path) ||
+        (environment.IsDevelopment() && Matches(DevelopmentOnlyAnonymousPaths, path));
+
+    private static bool Matches(string[] paths, PathString path) =>
+        paths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
 }

@@ -40,6 +40,28 @@ In Produktion kommt das Secret aus der Umgebungsvariablen `Keycloak__ClientSecre
 **keine** eingecheckte Datei — insbesondere nicht nach `Test.Web/wwwroot/`, denn diese Dateien lädt
 jeder Browser herunter.
 
+## Entwicklung und Hot Reload
+
+```bash
+dotnet watch --project Test.Web.Api
+```
+
+`Test.Web` wird mitgebaut und mit ausgeliefert; Aenderungen an Razor-Komponenten und C#-Code des
+WASM-Projekts greift `dotnet watch` ueber das API-Projekt mit ab. Das Client-Projekt laesst sich
+**nicht** mehr eigenstaendig starten — es hat kein Startprofil und keinen DevServer mehr, weil es
+ohne das Backend weder ein Session-Cookie noch eine erreichbare API haette.
+
+`MapFallbackToFile` steht dem nicht im Weg: Genau diese Kombination aus
+`UseBlazorFrameworkFiles()` + `UseStaticFiles()` + `MapFallbackToFile("index.html")` benutzt auch
+die offizielle Vorlage fuer gehostetes Blazor WebAssembly, und `dotnet watch` ist dafuer der
+vorgesehene Weg.
+
+Was Hot Reload hier tatsaechlich stoeren koennte, ist das Authentifizierungs-Gate: Die Skripte, die
+`dotnet watch` und Visual Studio zum Neuladen einspielen, duerfen nicht zu Keycloak umgeleitet
+werden. `RequireAuthenticatedUserMiddleware` laesst sie deshalb in der Entwicklung ausdruecklich
+anonym durch (`aspnetcore-browser-refresh.js`, `blazor-hotreload.js`, `/_vs/browserLink`). In
+Produktion gilt die Ausnahme nicht.
+
 ## Konfiguration
 
 `Test.Web.Api/appsettings.json`:
