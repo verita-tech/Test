@@ -1,6 +1,16 @@
-@Test.Web.Api_HostAddress = http://localhost:5180
+@Test.Web.Api_HostAddress = https://localhost:7247
 
-GET {{Test.Web.Api_HostAddress}}/weatherforecast/
+### Requires a bearer token from Keycloak; the cookie session is for the Blazor app only.
+@token = PASTE_ACCESS_TOKEN_HERE
+
+GET {{Test.Web.Api_HostAddress}}/api/weatherforecast/
 Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+
+GET {{Test.Web.Api_HostAddress}}/api/me
+Accept: application/json
+Authorization: Bearer {{token}}
 
 ###

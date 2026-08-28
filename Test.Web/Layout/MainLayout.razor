@@ -10,6 +10,8 @@
         <div class="top-row px-4">
             <AuthorizeView>
                 <Authorized>
+                    @* Shows who is signed in. No sign-out control on purpose: the session is
+                       permanent by design, ending it would only trigger an immediate new one. *@
                     <FluentPersona Name="@GetDisplayName(context.User)" Initials="@GetInitials(GetDisplayName(context.User))" />
                 </Authorized>
             </AuthorizeView>

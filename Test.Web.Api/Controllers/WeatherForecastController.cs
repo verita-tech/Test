@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Test.Web.Api.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     [Authorize(Policy = "AdAccess")]
     public class WeatherForecastController : ControllerBase
     {
