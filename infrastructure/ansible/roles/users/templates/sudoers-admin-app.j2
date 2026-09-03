@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Zentraler Administrationsaccount.
+#
+# Bewusst MIT Passwortabfrage: Wer per "su" in diesen Account gewechselt ist,
+# muss für root-Rechte erneut das gemeinsame Passwort eingeben.
+# Alle sudo-Aufrufe landen in /var/log/auth.log bzw. im Journal.
+{% if users_admin_app_sudo_nopasswd | bool %}
+{{ users_admin_app_user }} ALL=(ALL:ALL) NOPASSWD: ALL
+{% else %}
+{{ users_admin_app_user }} ALL=(ALL:ALL) ALL
+{% endif %}
+
+# Kommandos, die in der Sitzung protokolliert werden sollen (I/O-Logging kann
+# hier bei Bedarf ergänzt werden: Defaults:{{ users_admin_app_user }} log_output)
+Defaults:{{ users_admin_app_user }} timestamp_timeout=5

@@ -1,0 +1,75 @@
+---
+# Zentraler, gemeinsam genutzter Administrationsaccount.
+#
+# Anforderung: Mehrere Menschen sollen sich mit EINEM gemeinsamen Passwort als
+# dieser Benutzer anmelden können - aber niemals direkt von außen.
+#
+# Umsetzung (Defense in Depth, drei unabhängige Sperren):
+#   1. sshd: DenyUsers admin-app  +  AllowGroups {{ users_ssh_group }}
+#            (der Account ist in keiner der erlaubten Gruppen)   -> Rolle ssh_hardening
+#   2. keine authorized_keys für den Account
+#   3. PAM: "su - admin-app" nur für Mitglieder von {{ users_admin_app_su_group }}
+#
+# Der Zugang erfolgt also ausschließlich lokal: personalisierter SSH-Login
+# (Key) -> su - admin-app (gemeinsames Passwort) -> sudo (gleiches Passwort).
+
+- name: "Admin-App: Gruppe anlegen"
+  ansible.builtin.group:
+    name: "{{ users_admin_app_user }}"
+    state: present
+
+- name: "Admin-App: Benutzer anlegen"
+  ansible.builtin.user:
+    name: "{{ users_admin_app_user }}"
+    comment: "{{ users_admin_app_comment }}"
+    group: "{{ users_admin_app_user }}"
+    # Zugriff auf die kubeconfig, damit kubectl ohne sudo funktioniert.
+    groups: "{{ users_kube_group }}"
+    append: false
+    shell: "{{ users_admin_app_shell }}"
+    create_home: true
+    password: "{{ users_admin_app_password_hash }}"
+    # Passwort-Alterung bewusst deaktiviert: ein erzwungener Wechsel bei einem
+    # gemeinsam genutzten Account sperrt sonst das gesamte Team aus. Die
+    # Rotation erfolgt kontrolliert über den Vault (siehe README).
+    update_password: always
+    state: present
+
+- name: "Admin-App: Home-Verzeichnis nicht weltlesbar"
+  ansible.builtin.file:
+    path: "/home/{{ users_admin_app_user }}"
+    state: directory
+    owner: "{{ users_admin_app_user }}"
+    group: "{{ users_admin_app_user }}"
+    mode: "0750"
+
+- name: "Admin-App: keinen SSH-Zugang zulassen (authorized_keys entfernen)"
+  ansible.builtin.file:
+    path: "/home/{{ users_admin_app_user }}/.ssh/authorized_keys"
+    state: absent
+
+- name: "Admin-App: sudo-Regel schreiben (mit Passwortabfrage)"
+  ansible.builtin.template:
+    src: sudoers-admin-app.j2
+    dest: "/etc/sudoers.d/20-{{ users_admin_app_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo --check --file=%s
+
+- name: "Admin-App: su-Zugang auf die berechtigte Gruppe beschränken"
+  ansible.builtin.blockinfile:
+    path: /etc/pam.d/su
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - su nach {{ users_admin_app_user }}"
+    # Zeile 1 prüft das ZIEL des su-Aufrufs (PAM_USER).
+    #   - trifft "admin-app" zu   -> success=ignore -> weiter zu Zeile 2
+    #   - trifft es nicht zu      -> default=1      -> Zeile 2 wird übersprungen
+    # Zeile 2 prüft den AUFRUFER (use_uid -> reale UID) auf Gruppenmitgliedschaft.
+    # Damit bleibt jedes andere "su" unverändert; root ist über das weiter oben
+    # stehende pam_rootok.so ohnehin ausgenommen.
+    block: |
+      auth  [success=ignore default=1]  pam_succeed_if.so quiet user = {{ users_admin_app_user }}
+      auth  requisite                   pam_succeed_if.so quiet use_uid user ingroup {{ users_admin_app_su_group }}
+    insertafter: '^auth\s+sufficient\s+pam_rootok\.so'
+    state: "{{ users_admin_app_restrict_su | bool | ternary('present', 'absent') }}"
+    backup: true

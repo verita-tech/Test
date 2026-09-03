@@ -1,0 +1,17 @@
+---
+# ansible-lint prüft Playbooks und Rollen gegen die offiziellen Best Practices.
+profile: production
+
+exclude_paths:
+  - .ansible/
+  - .venv/
+  - .github/
+
+# Verschlüsselte Vault-Dateien und Beispiel-Dateien nicht als YAML parsen.
+kinds:
+  - yaml: "**/*.vault.yml"
+
+# Bewusst keine globale skip_list: Ausnahmen werden direkt am betroffenen
+# Task mit "# noqa: <regel>" und einer Begründung dokumentiert.
+warn_list:
+  - experimental

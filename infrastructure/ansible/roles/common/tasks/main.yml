@@ -1,0 +1,114 @@
+---
+# Rolle "common": Grundzustand jedes Servers - unabhängig von seiner späteren
+# Aufgabe. Alles hier ist idempotent und darf beliebig oft laufen.
+
+- name: Unterstütztes Betriebssystem sicherstellen
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == 'Ubuntu'
+      - ansible_facts['distribution_major_version'] | int >= 24
+    fail_msg: >-
+      Diese Automatisierung ist für Ubuntu 24.04+ (Zielsystem: 26.04) entwickelt.
+      Gefunden: {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] }}
+    success_msg: "Betriebssystem OK: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+  tags: [always]
+
+- name: APT-Paketindex aktualisieren
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [packages]
+
+- name: Basispakete installieren
+  ansible.builtin.apt:
+    name: "{{ common_base_packages }}"
+    state: present
+  tags: [packages]
+
+- name: Verfügbare Paket-Upgrades einspielen (optional)
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+  when: common_apt_upgrade | bool
+  tags: [packages, upgrade]
+
+- name: Zeitzone setzen
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+  notify: Restart cron
+  tags: [locale]
+
+- name: Zeitsynchronisation (systemd-timesyncd) aktivieren
+  ansible.builtin.systemd_service:
+    name: systemd-timesyncd
+    enabled: true
+    state: started
+  tags: [locale]
+
+- name: Locale erzeugen
+  community.general.locale_gen:
+    name: "{{ common_locale }}"
+    state: present
+  tags: [locale]
+
+- name: Systemweite Locale setzen
+  ansible.builtin.copy:
+    dest: /etc/default/locale
+    content: |
+      # Von Ansible verwaltet - Änderungen werden überschrieben.
+      LANG={{ common_locale }}
+      LC_ALL={{ common_locale }}
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [locale]
+
+- name: Hostname setzen
+  ansible.builtin.hostname:
+    name: "{{ common_hostname }}"
+  tags: [hostname]
+
+- name: Hostname in /etc/hosts eintragen
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: >-
+      127.0.1.1 {{ (common_domain | length > 0)
+      | ternary(common_hostname ~ '.' ~ common_domain ~ ' ' ~ common_hostname, common_hostname) }}
+    state: present
+  tags: [hostname]
+
+- name: Drop-in-Verzeichnis für journald sicherstellen
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [logging]
+
+- name: Journald-Grenzen konfigurieren
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-limits.conf
+    content: |
+      # Von Ansible verwaltet.
+      [Journal]
+      Storage=persistent
+      SystemMaxUse={{ common_journald_max_use }}
+      MaxRetentionSec={{ common_journald_max_retention }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart journald
+  tags: [logging]
+
+- name: Automatische Sicherheitsupdates konfigurieren
+  ansible.builtin.include_tasks: unattended_upgrades.yml
+  when: common_unattended_upgrades | bool
+  tags: [updates]
+
+- name: Swap deaktivieren
+  ansible.builtin.include_tasks: swap.yml
+  when: common_disable_swap | bool
+  tags: [swap]

@@ -1,0 +1,29 @@
+---
+# yamllint-Regeln für alle Ansible-Dateien.
+extends: default
+
+ignore: |
+  .ansible/
+  .venv/
+  *.vault.yml
+
+rules:
+  line-length:
+    max: 160
+    level: warning
+  truthy:
+    # Ansible erlaubt yes/no in Playbooks - wir erzwingen aber true/false
+    # für neue Dateien und lassen die Ansible-Schlüssel unangetastet.
+    allowed-values: ["true", "false"]
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  # Von ansible-lint gefordert (Kommentare dürfen eingerückt abweichen).
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  # Dateirechte gehören immer in Anführungszeichen ("0644"), sonst
+  # interpretiert YAML sie als Zahl und Ansible setzt die falschen Rechte.
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true

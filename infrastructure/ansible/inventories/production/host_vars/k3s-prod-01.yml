@@ -1,0 +1,8 @@
+---
+# Host-spezifische Werte für den bereitgestellten Server.
+# Alles, was nur diese eine Maschine betrifft, gehört hierher - nicht in die
+# group_vars.
+
+# Wird als /etc/hostname gesetzt (FQDN kommt aus dem Suffix unten).
+common_hostname: k3s-prod-01
+common_domain: firma.example

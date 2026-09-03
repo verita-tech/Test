@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+# Technischer Benutzer für Ansible.
+#
+# NOPASSWD ist erforderlich, weil Läufe nicht-interaktiv erfolgen. Das Risiko
+# wird kompensiert durch:
+#   * Anmeldung ausschließlich per SSH-Schlüssel (Passwort ist gesperrt)
+#   * Schlüsselverwaltung zentral im Git (exclusive: true)
+#   * jede Aktion ist im Journal und in der Ansible-Historie nachvollziehbar
+Defaults:{{ users_automation_user }} !requiretty
+{% if users_automation_sudo_nopasswd | bool %}
+{{ users_automation_user }} ALL=(ALL:ALL) NOPASSWD: ALL
+{% else %}
+{{ users_automation_user }} ALL=(ALL:ALL) ALL
+{% endif %}

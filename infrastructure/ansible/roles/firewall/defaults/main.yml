@@ -1,0 +1,36 @@
+---
+# Host-Firewall auf Basis von ufw (Standardwerkzeug unter Ubuntu, nftables
+# im Hintergrund). K3s pflegt seine eigenen iptables/nftables-Ketten -
+# deshalb wird der Pod- und Service-Verkehr hier explizit freigegeben.
+
+firewall_enabled: true
+
+firewall_default_incoming: deny
+firewall_default_outgoing: allow
+# Weitergeleiteter Verkehr (Container -> Netz) muss erlaubt sein, sonst
+# funktioniert das Cluster-Netzwerk nicht.
+firewall_default_routed: allow
+
+firewall_ssh_port: 22
+# Netze, aus denen administrativ zugegriffen werden darf.
+firewall_management_networks: []
+# Netze, aus denen die Kubernetes-API (6443) erreichbar sein soll.
+firewall_kube_api_networks: []
+# Netze, aus denen HTTP/HTTPS erreichbar sein soll.
+firewall_web_networks:
+  - 0.0.0.0/0
+firewall_web_ports:
+  - 80
+  - 443
+
+# Cluster-interne Netze (müssen zu den K3s-Einstellungen passen).
+firewall_cluster_cidr: 10.42.0.0/16
+firewall_service_cidr: 10.43.0.0/16
+
+# Zusätzliche Regeln, z. B. für Monitoring:
+#   - { port: 9100, proto: tcp, from: 10.10.0.0/16, comment: "node-exporter" }
+firewall_extra_rules: []
+
+# Protokollierung abgewiesener Pakete: "low" ist ein guter Kompromiss aus
+# Nachvollziehbarkeit und Log-Volumen.
+firewall_logging: low

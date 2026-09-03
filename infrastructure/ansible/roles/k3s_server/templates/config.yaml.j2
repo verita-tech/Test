@@ -1,0 +1,10 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+# {{ ansible_managed }}
+#
+# Konfiguration des K3s-Servers. Die Schlüssel entsprechen den Optionen von
+# "k3s server" ohne führende Bindestriche. Diese Datei ist die einzige Quelle
+# der Wahrheit - Parameter gehören NICHT in die systemd-Unit.
+#
+# Änderungen greifen erst nach einem Neustart des Dienstes (übernimmt der
+# Handler "Restart k3s" automatisch).
+{{ k3s_server_effective_config | to_nice_yaml(indent=2) }}

@@ -1,0 +1,82 @@
+---
+# Rolle "ssh_hardening": Absicherung des einzigen von außen erreichbaren Dienstes.
+#
+# Wichtig: Die Konfiguration wird als Drop-in unter /etc/ssh/sshd_config.d/
+# abgelegt und nicht in die Hauptdatei geschrieben. Ubuntu bindet das
+# Verzeichnis ganz oben per "Include" ein - und in sshd gewinnt der ZUERST
+# gelesene Wert. Damit gewinnen unsere Einstellungen, ohne dass wir eine
+# distributionsverwaltete Datei anfassen (Konflikte bei Upgrades entfallen).
+
+- name: Sicherstellen, dass der Automationsbenutzer sich weiterhin anmelden kann
+  ansible.builtin.assert:
+    that:
+      - ssh_hardening_allow_groups | length > 0
+      - ansible_user_id not in ssh_hardening_deny_users
+    fail_msg: >-
+      Die geplante SSH-Konfiguration würde den aktuellen Benutzer
+      ({{ ansible_user_id }}) aussperren. Lauf abgebrochen.
+  tags: [always]
+
+- name: SSH-Konfiguration (Drop-in) schreiben
+  ansible.builtin.template:
+    src: 10-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-hardening.conf
+    owner: root
+    group: root
+    mode: "0600"
+    # Prüft die Datei syntaktisch, bevor sie aktiv wird.
+    validate: /usr/sbin/sshd -t -f %s
+    backup: true
+  notify: Restart sshd
+  tags: [ssh]
+
+- name: Gesamtkonfiguration von sshd verifizieren
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+  tags: [ssh]
+
+- name: Socket-Aktivierung von ssh prüfen
+  # noqa: command-instead-of-module
+  # Bewusst "systemctl is-enabled": Es wird nur ABGEFRAGT, ob die Unit aktiv
+  # ist. Das systemd-Modul würde den Zustand verändern; service_facts liefert
+  # keine Socket-Units.
+  ansible.builtin.command: systemctl is-enabled ssh.socket
+  register: ssh_hardening_socket_state
+  changed_when: false
+  failed_when: false
+  tags: [ssh]
+
+# Ab Ubuntu 22.10 wird sshd per systemd-Socket gestartet. Der Port steht dann
+# in der Socket-Unit und NICHT in der sshd_config.
+- name: Port der ssh.socket anpassen (nur bei Socket-Aktivierung)
+  when:
+    - ssh_hardening_socket_state.stdout == 'enabled'
+    - ssh_hardening_port | int != 22
+  tags: [ssh]
+  block:
+    - name: Drop-in-Verzeichnis für ssh.socket anlegen
+      ansible.builtin.file:
+        path: /etc/systemd/system/ssh.socket.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Port in der Socket-Unit setzen
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ssh.socket.d/10-port.conf
+        content: |
+          # {{ ansible_managed }}
+          [Socket]
+          # Leerer Wert setzt die Vorgabe (Port 22) zurück.
+          ListenStream=
+          ListenStream={{ ssh_hardening_port }}
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart ssh socket
+
+- name: Fail2ban einrichten
+  ansible.builtin.include_tasks: fail2ban.yml
+  when: ssh_hardening_fail2ban | bool
+  tags: [ssh, fail2ban]

@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: firewall
+  author: Plattform-Team
+  description: Host-Firewall (ufw) inkl. der für K3s notwendigen Freigaben
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+        - resolute
+  galaxy_tags:
+    - security
+    - firewall
+
+dependencies: []

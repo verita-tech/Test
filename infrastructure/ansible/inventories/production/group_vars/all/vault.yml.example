@@ -1,0 +1,31 @@
+---
+# =============================================================================
+# VORLAGE für die verschlüsselte Geheimnis-Datei.
+#
+# Diese Datei ist NUR die Vorlage und enthält keine echten Werte.
+# Erzeugen der echten Datei:
+#
+#   cd infrastructure/ansible
+#   cp inventories/production/group_vars/all/vault.yml.example \
+#      inventories/production/group_vars/all/vault.yml
+#   # Werte eintragen, danach verschlüsseln:
+#   ansible-vault encrypt inventories/production/group_vars/all/vault.yml
+#
+# Bearbeiten später mit:
+#   ansible-vault edit inventories/production/group_vars/all/vault.yml
+#
+# Konvention: alle Vault-Variablen beginnen mit "vault_" und werden in
+# main.yml auf die eigentlichen Rollen-Variablen gemappt. So ist im Klartext
+# jederzeit sichtbar, welcher Wert aus dem Vault stammt.
+# =============================================================================
+
+# Passwort-Hash des zentralen Admin-Accounts "admin-app".
+# Erzeugen (im Dev Container, Paket "whois" ist installiert):
+#
+#   mkpasswd --method=yescrypt
+#
+# yescrypt ist der Standard-Algorithmus ab Ubuntu 22.04+. Alternativ:
+#   mkpasswd --method=sha-512
+#
+# WICHTIG: Hier gehört der HASH hinein, niemals das Klartext-Passwort.
+vault_admin_app_password_hash: "$y$j9T$BITTE_ERSETZEN$..."

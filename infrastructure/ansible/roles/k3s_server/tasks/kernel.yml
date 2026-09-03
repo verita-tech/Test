@@ -1,0 +1,45 @@
+---
+# Kernel-Voraussetzungen für Container-Netzwerke.
+#
+# Hinweis: Klassische "Hardening"-sysctls wie rp_filter=1 (strict) werden hier
+# bewusst NICHT gesetzt - sie brechen das Overlay-Netzwerk von Flannel.
+
+- name: Benötigte Kernel-Module beim Booten laden
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: |
+      # {{ ansible_managed }}
+      overlay
+      br_netfilter
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Kernel-Module sofort laden
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: Netzwerk-sysctls für Kubernetes setzen
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-k3s.conf
+    sysctl_set: true
+    reload: true
+    state: present
+  loop:
+    # Bridge-Verkehr muss durch iptables laufen, sonst greifen Service- und
+    # NetworkPolicy-Regeln nicht.
+    - { key: net.bridge.bridge-nf-call-iptables, value: "1" }
+    - { key: net.bridge.bridge-nf-call-ip6tables, value: "1" }
+    # Routing zwischen Pods und Außenwelt
+    - { key: net.ipv4.ip_forward, value: "1" }
+    # Viele Container erzeugen viele Watches/Instanzen (Logging, Configmaps)
+    - { key: fs.inotify.max_user_instances, value: "1024" }
+    - { key: fs.inotify.max_user_watches, value: "524288" }
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"

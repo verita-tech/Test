@@ -1,0 +1,13 @@
+# Python-Werkzeuge des Dev Containers.
+# Versionen als Bereiche: reproduzierbar genug, aber ohne den Container bei
+# jedem Patch-Release neu bauen zu müssen. Für maximale Reproduzierbarkeit
+# können hier exakte Versionen (==) gepinnt werden.
+ansible-core>=2.18,<2.21
+ansible-lint>=24.9
+yamllint>=1.35
+
+# Von Modulen/Filtern benötigt
+jmespath>=1.0        # json_query-Filter
+passlib>=1.7         # password_hash-Filter (z. B. für Vault-Hashes)
+netaddr>=1.3         # ipaddr-Filter (Firewall-/Netzwerkberechnungen)
+kubernetes>=31.0     # kubernetes.core-Module (späteres App-Deployment)

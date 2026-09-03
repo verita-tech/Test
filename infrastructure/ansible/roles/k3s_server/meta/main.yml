@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: k3s_server
+  author: Plattform-Team
+  description: Installation und Konfiguration eines K3s-Servers (Control-Plane)
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+        - resolute
+  galaxy_tags:
+    - kubernetes
+    - k3s
+
+dependencies: []

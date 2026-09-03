@@ -1,0 +1,28 @@
+// {{ ansible_managed }}
+// Lokale Ergänzung zu /etc/apt/apt.conf.d/50unattended-upgrades.
+// Die Datei wird nach der Standarddatei gelesen und überschreibt deren Werte.
+
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+};
+
+// Pakete, die niemals automatisch aktualisiert werden dürfen.
+// K3s wird nicht über APT installiert, steht hier aber als Beispiel für
+// Dienste, deren Update ein geplantes Wartungsfenster braucht.
+Unattended-Upgrade::Package-Blacklist {
+};
+
+// Nicht mehr benötigte Kernel und Abhängigkeiten aufräumen (/boot läuft sonst voll).
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// Neustart des Servers nur, wenn ausdrücklich gewünscht.
+Unattended-Upgrade::Automatic-Reboot "{{ common_unattended_auto_reboot | bool | lower }}";
+{% if common_unattended_auto_reboot | bool %}
+Unattended-Upgrade::Automatic-Reboot-Time "{{ common_unattended_auto_reboot_time }}";
+{% endif %}
+// Updates in kleinen Schritten einspielen - ein Abbruch (z. B. Stromausfall)
+// hinterlässt dadurch kein halb aktualisiertes System.
+Unattended-Upgrade::MinimalSteps "true";

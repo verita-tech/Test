@@ -1,0 +1,83 @@
+---
+# =============================================================================
+# EINMALIGES BOOTSTRAPPING
+#
+# Zweck: Auf einem frisch bereitgestellten Server existiert der technische
+# Benutzer "ansible" noch nicht. Dieses Playbook legt ihn an - danach läuft
+# alles Weitere ausschließlich über site.yml mit Schlüsselanmeldung.
+#
+# Aufruf (mit dem vom Hoster gelieferten Erst-Zugang):
+#
+#   ansible-playbook playbooks/bootstrap.yml \
+#     -e ansible_user=ubuntu -e ansible_port=22 --ask-become-pass
+#
+#   # oder, falls nur Passwort-Login existiert:
+#   ansible-playbook playbooks/bootstrap.yml \
+#     -e ansible_user=root --ask-pass
+#
+# Danach: Zugang testen mit "make ping" und NUR NOCH site.yml verwenden.
+# =============================================================================
+- name: Bootstrapping des Automationsbenutzers
+  hosts: k3s_cluster
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Voraussetzungen prüfen
+      ansible.builtin.assert:
+        that:
+          - site_automation_ssh_keys | length > 0
+          - site_automation_ssh_keys | select('search', 'BITTE_ERSETZEN') | list | length == 0
+        fail_msg: >-
+          In site_automation_ssh_keys stehen noch Platzhalter. Bitte zuerst die
+          echten öffentlichen Schlüssel in group_vars/all/main.yml eintragen -
+          sonst ist der Server nach dem Härten nicht mehr erreichbar.
+      tags: [always]
+
+    - name: Python für Ansible sicherstellen
+      ansible.builtin.raw: which python3 || (apt-get update && apt-get install -y python3)
+      changed_when: false
+
+  tasks:
+    - name: Gruppe für SSH-Zugang anlegen
+      ansible.builtin.group:
+        name: "{{ site_ssh_group }}"
+        state: present
+        system: true
+
+    - name: Automationsbenutzer anlegen
+      ansible.builtin.user:
+        name: "{{ site_automation_user }}"
+        comment: "Ansible Automation (technischer Benutzer)"
+        shell: /bin/bash
+        groups: "{{ site_ssh_group }}"
+        append: true
+        create_home: true
+        password: "!"
+        state: present
+
+    - name: SSH-Schlüssel hinterlegen
+      ansible.posix.authorized_key:
+        user: "{{ site_automation_user }}"
+        key: "{{ site_automation_ssh_keys | join('\n') }}"
+        exclusive: true
+        state: present
+
+    - name: Vorläufige sudo-Regel setzen
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/10-{{ site_automation_user }}"
+        content: |
+          # Von Ansible (bootstrap.yml) angelegt.
+          {{ site_automation_user }} ALL=(ALL:ALL) NOPASSWD: ALL
+        owner: root
+        group: root
+        mode: "0440"
+        validate: /usr/sbin/visudo --check --file=%s
+
+  post_tasks:
+    - name: Hinweis ausgeben
+      ansible.builtin.debug:
+        msg: >-
+          Bootstrapping abgeschlossen. Zugang prüfen mit "make ping",
+          anschließend "make deploy" ausführen. Der Erst-Zugang des Hosters
+          kann danach deaktiviert werden.

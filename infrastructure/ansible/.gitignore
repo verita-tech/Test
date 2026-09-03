@@ -1,0 +1,13 @@
+# Geheimnisse und lokale Artefakte - NIEMALS committen.
+.vault-pass
+*.retry
+
+# Von Ansible erzeugte Caches
+.ansible/
+
+# Vom Server geholte kubeconfig-Dateien (enthalten Admin-Credentials!)
+.kube/
+
+# Unverschlüsselte Vorstufe der Vault-Datei (Sicherheitsnetz, falls jemand
+# "vault.yml" vor dem Verschlüsseln committen möchte, siehe README)
+inventories/*/group_vars/*/vault.yml.plain

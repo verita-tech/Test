@@ -1,0 +1,43 @@
+---
+# ---------------------------------------------------------------------------
+# Gruppen
+# ---------------------------------------------------------------------------
+# Nur Mitglieder dieser Gruppe dürfen sich per SSH anmelden (sshd AllowGroups).
+users_ssh_group: ssh-users
+# Mitglieder dürfen /etc/rancher/k3s/k3s.yaml lesen (kubectl ohne sudo).
+users_kube_group: k3s-admin
+# Mitglieder dürfen per "su" in den zentralen Admin-Account wechseln.
+users_admin_app_su_group: admin-app-su
+
+# ---------------------------------------------------------------------------
+# Technischer Automations-Benutzer (Ansible)
+# ---------------------------------------------------------------------------
+users_automation_user: ansible
+users_automation_comment: "Ansible Automation (technischer Benutzer)"
+users_automation_shell: /bin/bash
+users_automation_ssh_keys: []
+# Passwortloses sudo ist für nicht-interaktive Automatisierung notwendig.
+# Der Zugang ist ausschließlich über SSH-Schlüssel möglich (Passwort gesperrt).
+users_automation_sudo_nopasswd: true
+
+# ---------------------------------------------------------------------------
+# Zentraler Administrations-Benutzer
+# ---------------------------------------------------------------------------
+users_admin_app_user: admin-app
+users_admin_app_comment: "Zentraler Administrationsaccount (gemeinsam genutzt)"
+users_admin_app_shell: /bin/bash
+# Pflichtwert aus dem Vault - siehe vault.yml.example (mkpasswd --method=yescrypt).
+users_admin_app_password_hash: ""
+# sudo erfordert die Eingabe des gemeinsamen Passworts (kein NOPASSWD).
+users_admin_app_sudo_nopasswd: false
+# Nur Mitglieder von users_admin_app_su_group dürfen "su - admin-app" ausführen.
+users_admin_app_restrict_su: true
+
+# ---------------------------------------------------------------------------
+# Personalisierte Administrator-Accounts
+# ---------------------------------------------------------------------------
+# Liste von Dicts: name, comment, ssh_keys, admin_app (bool), state, sudo (bool)
+users_admin_users: []
+# Sollen personalisierte Accounts eigenes sudo bekommen? Standard: nein -
+# administrative Arbeiten laufen bewusst über den zentralen Admin-Account.
+users_admin_users_default_sudo: false

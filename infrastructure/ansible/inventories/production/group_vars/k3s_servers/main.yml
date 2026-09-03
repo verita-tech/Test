@@ -1,0 +1,29 @@
+---
+# Einstellungen, die nur für die K3s-Control-Plane gelten.
+
+# Gepinnte K3s-Version. Upgrades sind damit eine bewusste, im Git nachvollzieh-
+# bare Änderung. Verfügbare Versionen: https://github.com/k3s-io/k3s/releases
+k3s_server_version: "v1.32.3+k3s1"
+
+# Komponenten, die K3s NICHT mitinstallieren soll.
+#   traefik  -> Ingress-Controller wird bewusst separat per Helm verwaltet
+#              (Versionierung, eigene Werte, ggf. ingress-nginx statt Traefik)
+#   servicelb-> bleibt aktiv: liefert LoadBalancer-IPs auf dem Single-Node
+k3s_server_disable:
+  - traefik
+
+# Verschlüsselung der Secrets im Datastore (at rest).
+k3s_server_secrets_encryption: true
+
+# Hinweis: Die Netzbereiche des Clusters (Pod-/Service-CIDR) stehen bewusst in
+# group_vars/all/main.yml (site_cluster_cidr / site_service_cidr), weil die
+# Firewall-Regeln dieselben Werte brauchen.
+
+# Zusätzliche Namen/IPs im API-Server-Zertifikat (z. B. DNS-Name des Servers).
+k3s_server_extra_tls_sans:
+  - k3s-prod-01.firma.example
+
+# kubeconfig nach dem Lauf in dieses Repo holen? Standard: nein.
+# Aktivierung per "-e k3s_server_fetch_kubeconfig=true" (siehe Makefile-Target
+# "kubeconfig"). Die Datei landet in .kube/ und ist per .gitignore ausgeschlossen.
+k3s_server_fetch_kubeconfig: false

@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: ssh_hardening
+  author: Plattform-Team
+  description: Absicherung des SSH-Dienstes (Drop-in-Konfiguration, Krypto, Zugriffssteuerung, fail2ban)
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+        - resolute
+  galaxy_tags:
+    - security
+    - ssh
+
+dependencies: []

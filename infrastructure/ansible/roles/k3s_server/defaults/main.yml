@@ -1,0 +1,77 @@
+---
+# ---------------------------------------------------------------------------
+# Version und Installationsquelle
+# ---------------------------------------------------------------------------
+# Immer eine exakte Version pinnen - ein Cluster-Upgrade ist eine bewusste,
+# im Git nachvollziehbare Entscheidung.
+k3s_server_version: "v1.32.3+k3s1"
+k3s_server_install_script_url: "https://get.k3s.io"
+k3s_server_install_script_path: /usr/local/share/k3s/install.sh
+
+# ---------------------------------------------------------------------------
+# Netzwerk
+# ---------------------------------------------------------------------------
+# IP, auf der K3s lauscht. Standard ist die Adresse der Default-Route; hat der
+# Server mehrere Netzwerkkarten oder keine Default-Route, wird die im Inventory
+# hinterlegte Adresse (ansible_host) verwendet. Bei mehreren NICs sollte der
+# Wert explizit in den host_vars gesetzt werden.
+k3s_server_node_ip: >-
+  {{ ansible_facts['default_ipv4']['address']
+     | default(ansible_host | default(inventory_hostname), true) }}
+k3s_server_cluster_cidr: 10.42.0.0/16
+k3s_server_service_cidr: 10.43.0.0/16
+k3s_server_cluster_dns: 10.43.0.10
+
+# Namen/IPs, die im Zertifikat des API-Servers stehen sollen. Ohne den
+# passenden Eintrag schlägt der Zugriff von außen mit einem TLS-Fehler fehl.
+k3s_server_tls_sans: []
+k3s_server_extra_tls_sans: []
+
+# ---------------------------------------------------------------------------
+# Cluster-Konfiguration
+# ---------------------------------------------------------------------------
+# Mitgelieferte Komponenten, die nicht installiert werden sollen.
+k3s_server_disable:
+  - traefik
+
+# Verschlüsselung der Secrets im Datastore.
+k3s_server_secrets_encryption: true
+
+# Labels/Taints des Knotens. Auf einem Single-Node-Cluster darf die
+# Control-Plane bewusst auch Workloads tragen (kein Taint).
+k3s_server_node_labels:
+  - "node.kubernetes.io/instance-type=bare-metal"
+k3s_server_node_taints: []
+
+# Reserven, damit ein außer Kontrolle geratener Pod nicht den Knoten mitreißt.
+k3s_server_kubelet_args:
+  - "system-reserved=cpu=200m,memory=512Mi"
+  - "kube-reserved=cpu=200m,memory=512Mi"
+  - "eviction-hard=memory.available<250Mi,nodefs.available<10%"
+
+# Freie Erweiterung der /etc/rancher/k3s/config.yaml. Wird rekursiv über die
+# obige Basiskonfiguration gelegt - siehe vars/main.yml.
+k3s_server_extra_config: {}
+
+# Optionale private Registry (registries.yaml), z. B. für eigene App-Images:
+#   k3s_server_registries:
+#     mirrors:
+#       registry.firma.example:
+#         endpoint: ["https://registry.firma.example"]
+k3s_server_registries: {}
+
+# ---------------------------------------------------------------------------
+# Zugriff auf die kubeconfig
+# ---------------------------------------------------------------------------
+k3s_server_kubeconfig_group: k3s-admin
+k3s_server_kubeconfig_mode: "0640"
+
+# kubeconfig nach dem Lauf ins Repo holen (Zugriff vom Dev Container aus).
+k3s_server_fetch_kubeconfig: false
+k3s_server_kubeconfig_local_path: "{{ playbook_dir }}/../.kube/{{ inventory_hostname }}.yaml"
+
+# ---------------------------------------------------------------------------
+# Verhalten der Rolle
+# ---------------------------------------------------------------------------
+# Wartezeit (Sekunden), bis der Knoten den Status "Ready" erreicht haben muss.
+k3s_server_ready_timeout: 300

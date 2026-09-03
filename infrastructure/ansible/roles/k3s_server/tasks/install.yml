@@ -1,0 +1,52 @@
+---
+# Installation über das offizielle Skript von get.k3s.io.
+#
+# Warum das Skript und kein eigener Binär-Download? Es installiert Binary,
+# systemd-Unit, Hilfsskripte (k3s-uninstall.sh) und die SELinux-Policies in
+# der vom Projekt getesteten Kombination - und ist damit der von Rancher
+# unterstützte Weg. Der Aufruf ist über die Versionsprüfung idempotent.
+
+- name: Installiertes K3s ermitteln
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_server_version_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Installierte Version auswerten
+  ansible.builtin.set_fact:
+    k3s_server_installed_version: >-
+      {{ (k3s_server_version_check.stdout | regex_search('k3s version (v[^ ]+)', '\\1') | first)
+         if k3s_server_version_check.rc == 0 else '' }}
+
+- name: Installationsstand melden
+  ansible.builtin.debug:
+    msg: >-
+      Installiert: {{ k3s_server_installed_version | default('(nichts)', true) }} /
+      Gewünscht: {{ k3s_server_version }}
+
+- name: Installationsskript herunterladen
+  ansible.builtin.get_url:
+    url: "{{ k3s_server_install_script_url }}"
+    dest: "{{ k3s_server_install_script_path }}"
+    owner: root
+    group: root
+    mode: "0700"
+  when: k3s_server_installed_version != k3s_server_version
+
+- name: K3s installieren bzw. auf die gepinnte Version bringen
+  ansible.builtin.command: "{{ k3s_server_install_script_path }}"
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_server_version }}"
+    INSTALL_K3S_EXEC: "server"
+    # Konfiguration liegt bereits in /etc/rancher/k3s/config.yaml.
+    INSTALL_K3S_SKIP_SELINUX_RPM: "true"
+  when: k3s_server_installed_version != k3s_server_version
+  changed_when: true
+  notify: Restart k3s
+
+- name: Dienst k3s aktivieren
+  ansible.builtin.systemd_service:
+    name: k3s
+    enabled: true
+    state: started

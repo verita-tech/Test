@@ -1,0 +1,65 @@
+---
+# Rolle "k3s_server": Installation und Konfiguration der K3s-Control-Plane.
+#
+# Ablauf:
+#   1. Kernel-Voraussetzungen (Module + sysctl)
+#   2. Konfigurationsdatei schreiben - VOR der Installation, damit K3s bereits
+#      beim ersten Start mit den richtigen Parametern hochkommt
+#   3. Installation/Upgrade nur, wenn die gewünschte Version noch nicht läuft
+#   4. Zugriff auf die kubeconfig für die Gruppe der Cluster-Administratoren
+#   5. Warten, bis der Knoten "Ready" meldet
+
+- name: Kernel-Voraussetzungen herstellen
+  ansible.builtin.import_tasks: kernel.yml
+  tags: [k3s, kernel]
+
+- name: Konfigurationsverzeichnisse anlegen
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    # 0750 + Gruppe: Cluster-Admins dürfen die kubeconfig lesen, sonst niemand.
+    - { path: /etc/rancher/k3s, group: "{{ k3s_server_kubeconfig_group }}", mode: "0750" }
+    - { path: /usr/local/share/k3s }
+  tags: [k3s]
+
+- name: K3s-Konfiguration schreiben
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: "{{ k3s_server_kubeconfig_group }}"
+    mode: "0640"
+    backup: true
+  notify: Restart k3s
+  tags: [k3s, config]
+
+- name: Registry-Konfiguration schreiben
+  ansible.builtin.copy:
+    content: "{{ k3s_server_registries | to_nice_yaml(indent=2) }}"
+    dest: /etc/rancher/k3s/registries.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_server_registries | length > 0
+  notify: Restart k3s
+  tags: [k3s, config]
+
+- name: Installation bzw. Upgrade durchführen
+  ansible.builtin.import_tasks: install.yml
+  tags: [k3s, install]
+
+- name: Zugriff auf die kubeconfig einrichten
+  ansible.builtin.import_tasks: kubeconfig.yml
+  tags: [k3s, kubeconfig]
+
+# Handler jetzt ausführen, damit die anschließende Prüfung den Endzustand sieht.
+- name: Ausstehende Handler ausführen
+  ansible.builtin.meta: flush_handlers
+
+- name: Cluster-Zustand prüfen
+  ansible.builtin.import_tasks: verify.yml
+  tags: [k3s, verify]

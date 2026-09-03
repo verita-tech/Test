@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: users
+  author: Plattform-Team
+  description: Benutzer-, Gruppen- und sudo-Konzept (Automationsbenutzer, personalisierte Accounts, zentraler Admin-Account)
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+        - resolute
+  galaxy_tags:
+    - system
+    - security
+
+dependencies: []

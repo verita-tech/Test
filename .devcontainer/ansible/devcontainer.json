@@ -1,0 +1,65 @@
+// Dev Container für die Ansible-/K3s-Automatisierung.
+// Auswahl in VS Code: F1 -> "Dev Containers: Reopen in Container" -> "Ansible / K3s".
+{
+  "name": "Ansible / K3s",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "args": {
+      // Zentral gepinnte Tool-Versionen (reproduzierbare Builds).
+      "KUBECTL_VERSION": "v1.32.3",
+      "HELM_VERSION": "v3.17.2"
+    }
+  },
+
+  // Wir arbeiten im Repo-Root, damit auch die .NET-Projekte sichtbar bleiben.
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.ansible",
+        "redhat.vscode-yaml",
+        "ms-python.python",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "timonwong.shellcheck",
+        "editorconfig.editorconfig"
+      ],
+      "settings": {
+        "ansible.python.interpreterPath": "/usr/local/bin/python",
+        "ansible.validation.lint.enabled": true,
+        "ansible.validation.lint.path": "ansible-lint",
+        "files.associations": {
+          "**/inventories/**/*.yml": "ansible",
+          "**/playbooks/*.yml": "ansible",
+          "**/roles/**/*.yml": "ansible"
+        },
+        "[ansible]": {
+          "editor.tabSize": 2,
+          "editor.insertSpaces": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  // SSH-Agent-Forwarding: der private Schlüssel bleibt auf dem Host,
+  // der Container nutzt nur den Agent-Socket (VS Code mountet ihn automatisch).
+  // Zusätzlich wird ~/.ssh read-only gemountet (known_hosts, config).
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh-host,type=bind,consistency=cached,readonly"
+  ],
+
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+
+  "postCreateCommand": "bash .devcontainer/ansible/post-create.sh",
+
+  "remoteEnv": {
+    "ANSIBLE_CONFIG": "${containerWorkspaceFolder}/infrastructure/ansible/ansible.cfg"
+  }
+}

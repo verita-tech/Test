@@ -1,0 +1,31 @@
+---
+# Brute-Force-Schutz. Ubuntu 24.04+ liefert keinen rsyslog mehr mit, daher
+# liest fail2ban direkt das systemd-Journal (backend = systemd).
+
+- name: Fail2ban installieren
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+
+- name: Konfigurationsverzeichnis sicherstellen
+  ansible.builtin.file:
+    path: /etc/fail2ban/jail.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Jail für den SSH-Dienst konfigurieren
+  ansible.builtin.template:
+    src: fail2ban-sshd.local.j2
+    dest: /etc/fail2ban/jail.d/sshd.local
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Fail2ban aktivieren
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    enabled: true
+    state: started

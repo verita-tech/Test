@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[sshd]
+enabled  = true
+backend  = systemd
+port     = {{ ssh_hardening_port }}
+maxretry = {{ ssh_hardening_fail2ban_maxretry }}
+findtime = {{ ssh_hardening_fail2ban_findtime }}
+bantime  = {{ ssh_hardening_fail2ban_bantime }}
+# Netze, die nie gesperrt werden (sonst sperrt sich die Automatisierung
+# im Fehlerfall selbst aus).
+ignoreip = {{ (ssh_hardening_fail2ban_ignoreip + firewall_management_networks | default([])) | unique | join(' ') }}

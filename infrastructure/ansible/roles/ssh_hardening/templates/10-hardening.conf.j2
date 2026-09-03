@@ -1,0 +1,53 @@
+# {{ ansible_managed }}
+# Wird von /etc/ssh/sshd_config per Include eingebunden. Der zuerst gelesene
+# Wert gewinnt in sshd - dieses Drop-in hat daher Vorrang.
+#
+# Hinweis: "Subsystem sftp" wird hier bewusst NICHT gesetzt - die Direktive
+# darf nur einmal vorkommen und steht bereits in der Hauptkonfiguration.
+
+Port {{ ssh_hardening_port }}
+
+# --- Authentifizierung -------------------------------------------------------
+PermitRootLogin {{ ssh_hardening_permit_root_login }}
+PubkeyAuthentication yes
+PasswordAuthentication {{ ssh_hardening_password_authentication }}
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+MaxAuthTries {{ ssh_hardening_max_auth_tries }}
+MaxSessions 10
+LoginGraceTime {{ ssh_hardening_login_grace_time }}
+StrictModes yes
+UsePAM yes
+
+# --- Wer darf sich anmelden --------------------------------------------------
+# Nur Mitglieder dieser Gruppen. Der zentrale Admin-Account ist bewusst in
+# keiner davon und zusätzlich unter DenyUsers gelistet.
+AllowGroups {{ ssh_hardening_allow_groups | join(' ') }}
+{% if ssh_hardening_deny_users | length > 0 %}
+DenyUsers {{ ssh_hardening_deny_users | join(' ') }}
+{% endif %}
+
+# --- Sitzungen ---------------------------------------------------------------
+ClientAliveInterval {{ ssh_hardening_client_alive_interval }}
+ClientAliveCountMax {{ ssh_hardening_client_alive_count_max }}
+TCPKeepAlive no
+
+# --- Forwarding --------------------------------------------------------------
+AllowTcpForwarding {{ ssh_hardening_allow_tcp_forwarding }}
+AllowAgentForwarding {{ ssh_hardening_allow_agent_forwarding }}
+X11Forwarding {{ ssh_hardening_x11_forwarding }}
+PermitTunnel no
+GatewayPorts no
+
+# --- Kryptografie ------------------------------------------------------------
+KexAlgorithms {{ ssh_hardening_kex_algorithms | join(',') }}
+Ciphers {{ ssh_hardening_ciphers | join(',') }}
+MACs {{ ssh_hardening_macs | join(',') }}
+
+# --- Logging -----------------------------------------------------------------
+# VERBOSE protokolliert zusätzlich den Fingerprint des verwendeten Schlüssels -
+# entscheidend für die Nachvollziehbarkeit, wer wann gearbeitet hat.
+LogLevel VERBOSE
+PrintMotd no
+PrintLastLog yes
+AcceptEnv LANG LC_*

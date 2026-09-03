@@ -1,0 +1,35 @@
+---
+# Abschließende Zustandsprüfung. Ein Lauf gilt erst als erfolgreich, wenn die
+# API antwortet und der Knoten "Ready" meldet.
+
+- name: Warten, bis die Kubernetes-API bereit ist
+  ansible.builtin.command: k3s kubectl get --raw=/readyz
+  register: k3s_server_readyz
+  until: k3s_server_readyz.rc == 0
+  retries: "{{ ((k3s_server_ready_timeout | int) / 10) | round | int }}"
+  delay: 10
+  changed_when: false
+  check_mode: false
+
+- name: Warten, bis der Knoten den Status Ready hat
+  ansible.builtin.command: >-
+    k3s kubectl wait --for=condition=Ready node --all
+    --timeout={{ k3s_server_ready_timeout }}s
+  changed_when: false
+  check_mode: false
+
+- name: Knoten und System-Pods einsammeln
+  ansible.builtin.command: "{{ item }}"
+  register: k3s_server_cluster_state
+  loop:
+    - k3s kubectl get nodes -o wide --no-headers
+    - k3s kubectl get pods -n kube-system --no-headers
+  changed_when: false
+  check_mode: false
+
+- name: Zusammenfassung ausgeben
+  ansible.builtin.debug:
+    msg:
+      - "K3s-Version: {{ k3s_server_version }}"
+      - "Knoten:      {{ k3s_server_cluster_state.results[0].stdout_lines }}"
+      - "kube-system: {{ k3s_server_cluster_state.results[1].stdout_lines | length }} Pods"

@@ -1,0 +1,23 @@
+---
+# Berechnete Werte - bewusst in vars/ (höhere Priorität als defaults/) und
+# damit nicht versehentlich aus dem Inventory überschreibbar.
+
+# Basiskonfiguration für /etc/rancher/k3s/config.yaml.
+# Die Schlüssel entsprechen 1:1 den Kommandozeilenoptionen von "k3s server"
+# (ohne führende Bindestriche).
+k3s_server_base_config:
+  node-ip: "{{ k3s_server_node_ip }}"
+  cluster-cidr: "{{ k3s_server_cluster_cidr }}"
+  service-cidr: "{{ k3s_server_service_cidr }}"
+  cluster-dns: "{{ k3s_server_cluster_dns }}"
+  tls-san: "{{ (k3s_server_tls_sans + k3s_server_extra_tls_sans) | unique | list }}"
+  disable: "{{ k3s_server_disable }}"
+  secrets-encryption: "{{ k3s_server_secrets_encryption | bool }}"
+  write-kubeconfig-mode: "{{ k3s_server_kubeconfig_mode }}"
+  node-label: "{{ k3s_server_node_labels }}"
+  node-taint: "{{ k3s_server_node_taints }}"
+  kubelet-arg: "{{ k3s_server_kubelet_args }}"
+
+# Effektive Konfiguration inkl. der projektspezifischen Erweiterungen.
+# (Ein einzelner Jinja-Ausdruck - Ansible liefert damit ein echtes Dict zurück.)
+k3s_server_effective_config: "{{ k3s_server_base_config | combine(k3s_server_extra_config, recursive=True) }}"

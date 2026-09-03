@@ -1,0 +1,43 @@
+---
+# Ein personalisierter Account je Mensch - Aufruf pro Eintrag aus
+# users_admin_users (loop_var: admin_user).
+#
+# Bewusste Entscheidungen:
+#   * kein Passwort (nur SSH-Key)      -> Brute-Force auf Personen-Accounts läuft ins Leere
+#   * standardmäßig kein sudo          -> Admin-Rechte laufen über den zentralen Account
+#   * state: absent entfernt den Account inkl. Home (Offboarding im Git nachvollziehbar)
+
+- name: "Account entfernen: {{ admin_user.name }}"
+  ansible.builtin.user:
+    name: "{{ admin_user.name }}"
+    state: absent
+    remove: true
+    force: true
+  when: admin_user.state | default('present') == 'absent'
+
+- name: "Account anlegen/aktualisieren: {{ admin_user.name }}"
+  ansible.builtin.user:
+    name: "{{ admin_user.name }}"
+    comment: "{{ admin_user.comment | default(admin_user.name) }}"
+    shell: "{{ admin_user.shell | default('/bin/bash') }}"
+    groups: "{{ user_groups | join(',') }}"
+    append: false
+    create_home: true
+    password: "!"
+    state: present
+  vars:
+    user_groups: >-
+      {{ [users_ssh_group, users_kube_group]
+         + ([users_admin_app_su_group] if (admin_user.admin_app | default(false)) else [])
+         + (['sudo'] if (admin_user.sudo | default(users_admin_users_default_sudo)) else []) }}
+  when: admin_user.state | default('present') != 'absent'
+
+- name: "SSH-Schlüssel verwalten für: {{ admin_user.name }}"
+  ansible.posix.authorized_key:
+    user: "{{ admin_user.name }}"
+    key: "{{ admin_user.ssh_keys | join('\n') }}"
+    exclusive: true
+    state: present
+  when:
+    - admin_user.state | default('present') != 'absent'
+    - admin_user.ssh_keys | default([]) | length > 0

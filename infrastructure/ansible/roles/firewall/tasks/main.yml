@@ -1,0 +1,93 @@
+---
+# Rolle "firewall": ufw-Regelwerk.
+#
+# Reihenfolge ist sicherheitsrelevant: Erst werden alle Regeln gesetzt,
+# ERST DANACH wird die Firewall aktiviert. Andernfalls würde der laufende
+# Ansible-Lauf seine eigene SSH-Verbindung abschneiden.
+
+- name: Paketfilter ufw installieren
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  tags: [firewall]
+
+- name: Mindestens ein Management-Netz für SSH definieren
+  ansible.builtin.assert:
+    that:
+      - firewall_management_networks | length > 0
+    fail_msg: >-
+      firewall_management_networks ist leer - damit wäre nach dem Aktivieren
+      der Firewall kein SSH-Zugriff mehr möglich.
+  tags: [firewall]
+
+- name: SSH nur aus den Management-Netzen erlauben
+  community.general.ufw:
+    rule: limit
+    port: "{{ firewall_ssh_port }}"
+    proto: tcp
+    src: "{{ item }}"
+    comment: "SSH Administration"
+  loop: "{{ firewall_management_networks }}"
+  tags: [firewall]
+
+- name: Kubernetes-API (6443) freigeben
+  community.general.ufw:
+    rule: allow
+    port: "6443"
+    proto: tcp
+    src: "{{ item }}"
+    comment: "Kubernetes API"
+  loop: "{{ firewall_kube_api_networks }}"
+  tags: [firewall]
+
+- name: HTTP/HTTPS für Anwendungen freigeben
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.1 }}"
+    proto: tcp
+    src: "{{ item.0 }}"
+    comment: "Ingress"
+  loop: "{{ firewall_web_networks | product(firewall_web_ports) | list }}"
+  tags: [firewall]
+
+# Ohne diese beiden Regeln blockiert ufw den Verkehr zwischen Pods bzw.
+# von Pods zu Cluster-Diensten (CoreDNS, API-Server).
+- name: Cluster-internen Verkehr erlauben (Pod- und Service-Netz)
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+    comment: "K3s cluster traffic"
+  loop:
+    - "{{ firewall_cluster_cidr }}"
+    - "{{ firewall_service_cidr }}"
+  tags: [firewall]
+
+- name: Zusätzliche Regeln anwenden
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    src: "{{ item.from | default('any') }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ firewall_extra_rules }}"
+  loop_control:
+    label: "{{ item.comment | default(item.port) }}"
+  tags: [firewall]
+
+- name: Logging einstellen
+  community.general.ufw:
+    logging: "{{ firewall_logging }}"
+  tags: [firewall]
+
+- name: Standardrichtlinien setzen und Firewall aktivieren
+  community.general.ufw:
+    state: "{{ firewall_enabled | bool | ternary('enabled', 'disabled') }}"
+    policy: "{{ item.policy }}"
+    direction: "{{ item.direction }}"
+  loop:
+    - { direction: incoming, policy: "{{ firewall_default_incoming }}" }
+    - { direction: outgoing, policy: "{{ firewall_default_outgoing }}" }
+    - { direction: routed, policy: "{{ firewall_default_routed }}" }
+  loop_control:
+    label: "{{ item.direction }}={{ item.policy }}"
+  tags: [firewall]

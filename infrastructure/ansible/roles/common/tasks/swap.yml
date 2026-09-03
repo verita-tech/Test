@@ -1,0 +1,19 @@
+---
+# Kubelet erwartet standardmäßig ein System ohne aktives Swap.
+
+- name: Aktive Swap-Bereiche ermitteln
+  ansible.builtin.command: swapon --noheadings --show=NAME
+  register: common_swap_devices
+  changed_when: false
+  failed_when: false
+
+- name: Swap sofort deaktivieren
+  ansible.builtin.command: swapoff --all
+  when: common_swap_devices.stdout | trim | length > 0
+  changed_when: true
+
+- name: Swap-Einträge in /etc/fstab dauerhaft auskommentieren
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(\s*[^#\n]+\s+swap\s+.*)$'
+    replace: '# \1  # von Ansible deaktiviert (Kubernetes)'

@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: common
+  author: Plattform-Team
+  description: Grundkonfiguration für Ubuntu-Server (Pakete, Zeit, Locale, Logging, Updates)
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble    # 24.04
+        - resolute # 26.04
+  galaxy_tags:
+    - system
+    - baseline
+
+dependencies: []

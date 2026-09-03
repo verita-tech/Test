@@ -1,0 +1,41 @@
+---
+# Systemname. Standard ist der Inventory-Name; per host_vars überschreibbar.
+common_hostname: "{{ inventory_hostname }}"
+common_domain: ""
+
+common_timezone: Europe/Berlin
+common_locale: de_DE.UTF-8
+
+# Basiswerkzeuge, die auf jedem Server erwartet werden.
+common_base_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - htop
+  - iputils-ping
+  - jq
+  - lsof
+  - net-tools
+  - python3-apt          # Voraussetzung für die apt-Module von Ansible
+  - rsync
+  - tcpdump
+  - unattended-upgrades
+  - vim
+  - wget
+
+# Ein "apt dist-upgrade" bei jedem Lauf ist bewusst deaktiviert: Paket-Updates
+# sollen in einem geplanten Wartungsfenster erfolgen, nicht als Nebeneffekt
+# eines Konfigurationslaufs. Sicherheitsupdates übernimmt unattended-upgrades.
+common_apt_upgrade: false
+
+# Automatische Sicherheitsupdates
+common_unattended_upgrades: true
+common_unattended_auto_reboot: false
+common_unattended_auto_reboot_time: "03:30"
+
+# Kubelet unterstützt kein aktives Swap (Standardkonfiguration von K3s).
+common_disable_swap: true
+
+# Persistentes Journal mit Größenbegrenzung, damit /var nicht volläuft.
+common_journald_max_use: 1G
+common_journald_max_retention: 30day

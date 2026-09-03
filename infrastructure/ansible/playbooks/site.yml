@@ -1,0 +1,46 @@
+---
+# =============================================================================
+# HAUPT-PLAYBOOK
+#
+# Beschreibt den vollständigen Soll-Zustand der Server. Es ist idempotent und
+# kann jederzeit erneut laufen ("make deploy" bzw. "make check" für einen
+# Trockenlauf).
+#
+# Reihenfolge ist bewusst gewählt:
+#   1. common        - Grundzustand (Pakete, Zeit, Logging, Updates)
+#   2. users         - Benutzer/Gruppen; MUSS vor dem SSH-Härten laufen,
+#                      sonst sperrt AllowGroups die Automatisierung aus
+#   3. ssh_hardening - Absicherung des Fernzugangs
+#   4. firewall      - Paketfilter; erst nach dem SSH-Setup, damit der Port passt
+#   5. k3s_server    - Kubernetes-Control-Plane
+# =============================================================================
+- name: Grundkonfiguration und Absicherung
+  hosts: k3s_cluster
+  become: true
+  gather_facts: true
+  # Bei einem Fehler auf einem Host sofort abbrechen, statt einen halb
+  # konfigurierten Server zurückzulassen.
+  any_errors_fatal: true
+
+  roles:
+    - role: common
+      tags: [common]
+
+    - role: users
+      tags: [users]
+
+    - role: ssh_hardening
+      tags: [ssh]
+
+    - role: firewall
+      tags: [firewall]
+
+- name: Kubernetes-Control-Plane
+  hosts: k3s_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+
+  roles:
+    - role: k3s_server
+      tags: [k3s]

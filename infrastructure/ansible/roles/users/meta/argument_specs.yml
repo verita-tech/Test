@@ -1,0 +1,90 @@
+---
+# Formale Beschreibung der Rollen-Schnittstelle. Ansible validiert die
+# Eingaben damit automatisch beim Rollenaufruf (ansible-core >= 2.11).
+argument_specs:
+  main:
+    short_description: Benutzer-, Gruppen- und sudo-Konzept
+    options:
+      users_ssh_group:
+        type: str
+        required: false
+        default: ssh-users
+        description: Gruppe, deren Mitglieder sich per SSH anmelden dürfen.
+      users_kube_group:
+        type: str
+        required: false
+        default: k3s-admin
+        description: Gruppe mit Lesezugriff auf die kubeconfig.
+      users_admin_app_su_group:
+        type: str
+        required: false
+        default: admin-app-su
+        description: Gruppe, deren Mitglieder per su in den Admin-Account wechseln dürfen.
+      users_automation_user:
+        type: str
+        required: false
+        default: ansible
+        description: Name des technischen Automationsbenutzers.
+      users_automation_ssh_keys:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: Öffentliche SSH-Schlüssel des Automationsbenutzers.
+      users_admin_app_user:
+        type: str
+        required: false
+        default: admin-app
+        description: Name des zentralen Administrationsaccounts.
+      users_admin_app_password_hash:
+        type: str
+        required: true
+        description: >-
+          crypt-Hash des gemeinsamen Passworts (mkpasswd --method=yescrypt).
+          Stammt aus der verschlüsselten vault.yml.
+      users_admin_app_restrict_su:
+        type: bool
+        required: false
+        default: true
+        description: su in den Admin-Account auf users_admin_app_su_group beschränken.
+      users_admin_users:
+        type: list
+        elements: dict
+        required: false
+        default: []
+        description: Personalisierte Administrator-Accounts.
+        options:
+          name:
+            type: str
+            required: true
+            description: Login-Name (Kleinbuchstaben).
+          comment:
+            type: str
+            required: false
+            description: Klarname (GECOS).
+          shell:
+            type: str
+            required: false
+            default: /bin/bash
+            description: Login-Shell.
+          ssh_keys:
+            type: list
+            elements: str
+            required: false
+            default: []
+            description: Öffentliche SSH-Schlüssel des Benutzers.
+          admin_app:
+            type: bool
+            required: false
+            default: false
+            description: Darf per su in den zentralen Admin-Account wechseln.
+          sudo:
+            type: bool
+            required: false
+            description: Eigenes sudo-Recht (Standard aus users_admin_users_default_sudo).
+          state:
+            type: str
+            required: false
+            default: present
+            choices: [present, absent]
+            description: Account anlegen oder entfernen.

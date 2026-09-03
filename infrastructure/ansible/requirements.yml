@@ -1,0 +1,11 @@
+---
+# Externe Ansible-Collections. Installation:
+#   ansible-galaxy collection install -r requirements.yml
+# (passiert automatisch beim Erstellen des Dev Containers)
+collections:
+  - name: ansible.posix
+    version: ">=1.6.0"      # sysctl, mount, authorized_key-Helfer, Callbacks
+  - name: community.general
+    version: ">=9.0.0"      # ufw, locale_gen, timezone, pam_limits, ...
+  - name: kubernetes.core
+    version: ">=3.2.0"      # k8s/helm-Module für spätere App-Deployments

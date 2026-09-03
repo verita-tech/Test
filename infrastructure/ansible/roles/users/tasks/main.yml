@@ -1,0 +1,88 @@
+---
+# Rolle "users": Benutzer-, Gruppen- und sudo-Konzept.
+#
+# Konzept (siehe README, Abschnitt "Benutzerkonzept"):
+#   * ansible      -> technischer Benutzer, nur SSH-Key, passwortloses sudo
+#   * <person>     -> personalisierter Login pro Mensch, nur SSH-Key, kein sudo
+#   * admin-app    -> gemeinsamer Admin-Account, Passwort-Login, sudo mit Passwort,
+#                     KEIN SSH-Zugang von außen (DenyUsers + fehlende SSH-Gruppe)
+#
+# Der Weg eines Menschen: SSH mit persönlichem Key -> "su - admin-app"
+# (gemeinsames Passwort) -> administrative Arbeit mit sudo.
+
+- name: Konfiguration validieren
+  ansible.builtin.assert:
+    that:
+      - users_admin_app_password_hash | length > 0
+      - users_admin_app_password_hash is match('^\\$')
+    fail_msg: >-
+      users_admin_app_password_hash ist leer oder kein crypt-Hash.
+      Bitte vault.yml anlegen (siehe vault.yml.example) und mit
+      "mkpasswd --method=yescrypt" einen Hash erzeugen.
+  tags: [always]
+
+- name: Systemgruppen anlegen
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+    system: true
+  loop:
+    - "{{ users_ssh_group }}"
+    - "{{ users_kube_group }}"
+    - "{{ users_admin_app_su_group }}"
+  tags: [users, groups]
+
+# ---------------------------------------------------------------------------
+# Technischer Automations-Benutzer
+# ---------------------------------------------------------------------------
+- name: Automations-Benutzer anlegen
+  ansible.builtin.user:
+    name: "{{ users_automation_user }}"
+    comment: "{{ users_automation_comment }}"
+    shell: "{{ users_automation_shell }}"
+    groups: "{{ [users_ssh_group, users_kube_group] | join(',') }}"
+    append: true
+    create_home: true
+    # "!" sperrt die Passwort-Anmeldung, ohne den Account zu deaktivieren.
+    password: "!"
+    state: present
+  tags: [users]
+
+- name: SSH-Schlüssel des Automations-Benutzers verwalten
+  ansible.posix.authorized_key:
+    user: "{{ users_automation_user }}"
+    key: "{{ users_automation_ssh_keys | join('\n') }}"
+    # exclusive: entfernt Schlüssel, die nicht mehr im Inventory stehen -
+    # damit ist das Repo die einzige Wahrheit über den Zugang.
+    exclusive: true
+    state: present
+  when: users_automation_ssh_keys | length > 0
+  tags: [users, ssh-keys]
+
+- name: Sudo-Regel für den Automations-Benutzer
+  ansible.builtin.template:
+    src: sudoers-automation.j2
+    dest: "/etc/sudoers.d/10-{{ users_automation_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo --check --file=%s
+  tags: [users, sudo]
+
+# ---------------------------------------------------------------------------
+# Personalisierte Accounts
+# ---------------------------------------------------------------------------
+- name: Personalisierte Administrator-Accounts verwalten
+  ansible.builtin.include_tasks: admin_users.yml
+  loop: "{{ users_admin_users }}"
+  loop_control:
+    loop_var: admin_user
+    label: "{{ admin_user.name }}"
+  tags: [users]
+
+# ---------------------------------------------------------------------------
+# Zentraler Administrations-Benutzer
+# ---------------------------------------------------------------------------
+- name: Zentralen Administrations-Benutzer einrichten
+  ansible.builtin.include_tasks: admin_app.yml
+  tags: [users, admin-app]

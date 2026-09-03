@@ -1,0 +1,126 @@
+---
+# =============================================================================
+# Zentrale Stellschrauben der gesamten Umgebung.
+#
+# Konvention: Variablen einer Rolle sind mit dem Rollennamen präfixiert
+# (z. B. "users_", "k3s_server_"). Hier werden sie aus wenigen, sprechenden
+# "site_"-Variablen abgeleitet, damit es genau eine Stelle zum Ändern gibt.
+# Geheimnisse stehen NICHT hier, sondern in der verschlüsselten vault.yml.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Verbindung / Zugang
+# -----------------------------------------------------------------------------
+site_ssh_port: 22
+
+# Technischer Benutzer, mit dem Ansible arbeitet (kein Mensch loggt sich damit ein).
+site_automation_user: ansible
+
+# Zentraler Administrations-Benutzer. Linux-Benutzernamen müssen kleingeschrieben
+# sein (NAME_REGEX in /etc/adduser.conf), daher "admin-app" statt "Admin-App".
+site_admin_app_user: admin-app
+
+# Systemgruppen:
+#   ssh-users  -> darf sich überhaupt per SSH anmelden (AllowGroups)
+#   k3s-admin  -> darf die kubeconfig lesen (kubectl ohne sudo)
+#   admin-app-su -> darf per "su" in den zentralen Admin-Account wechseln
+site_ssh_group: ssh-users
+site_kube_group: k3s-admin
+site_admin_app_su_group: admin-app-su
+
+# Verbindungsparameter für alle Hosts. Der private Schlüssel wird bewusst nicht
+# gesetzt - im Dev Container wird der SSH-Agent des Hosts weitergereicht.
+ansible_user: "{{ site_automation_user }}"
+ansible_port: "{{ site_ssh_port }}"
+ansible_python_interpreter: /usr/bin/python3
+
+# -----------------------------------------------------------------------------
+# Netzwerke (für Firewall-Regeln)
+# -----------------------------------------------------------------------------
+# Netze, aus denen SSH und die Kubernetes-API erreichbar sein dürfen.
+# "0.0.0.0/0" ist hier bewusst NICHT vorgesehen - bitte auf das Firmennetz bzw.
+# das VPN-Netz einschränken.
+site_management_networks:
+  - 10.10.0.0/16
+
+# Netze, aus denen HTTP/HTTPS auf den Cluster zugreifen darf.
+site_web_networks:
+  - 0.0.0.0/0
+
+# Cluster-interne Netze (K3s-Standardwerte). Firewall UND K3s leiten ihre
+# Werte hieraus ab - so können beide nicht auseinanderlaufen.
+site_cluster_cidr: 10.42.0.0/16
+site_service_cidr: 10.43.0.0/16
+
+# -----------------------------------------------------------------------------
+# Menschliche Administratoren
+#
+# Jeder Mensch hat einen eigenen, personalisierten Account mit SSH-Key
+# (Nachvollziehbarkeit im Audit-Log). Administrative Arbeiten erfolgen
+# anschließend über den gemeinsamen Account "{{ site_admin_app_user }}"
+# ("su - admin-app" mit dem gemeinsamen Passwort aus dem Vault).
+#
+# Felder:
+#   name        Login-Name (Kleinbuchstaben, keine Punkte)
+#   comment     Klarname für das GECOS-Feld
+#   ssh_keys    Liste öffentlicher Schlüssel (ed25519 bevorzugt)
+#   admin_app   true  -> darf zu "{{ site_admin_app_user }}" wechseln
+#   state       present | absent  (absent entfernt den Account sauber)
+# -----------------------------------------------------------------------------
+site_admin_users:
+  - name: mmustermann
+    comment: "Max Mustermann"
+    admin_app: true
+    state: present
+    ssh_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI_BITTE_ERSETZEN_1 mmustermann@firma.example"
+
+  - name: emusterfrau
+    comment: "Erika Musterfrau"
+    admin_app: true
+    state: present
+    ssh_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI_BITTE_ERSETZEN_2 emusterfrau@firma.example"
+
+# Öffentliche Schlüssel des Automations-Benutzers (CI-Runner, Arbeitsplätze der
+# Plattform-Admins). Ohne diese Schlüssel kommt Ansible nach dem Bootstrapping
+# nicht mehr auf den Host.
+site_automation_ssh_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI_BITTE_ERSETZEN_CI ansible@ci.firma.example"
+
+# -----------------------------------------------------------------------------
+# Ableitung der Rollen-Variablen (in der Regel nicht anpassen)
+# -----------------------------------------------------------------------------
+common_timezone: Europe/Berlin
+common_locale: de_DE.UTF-8
+
+users_automation_user: "{{ site_automation_user }}"
+users_automation_ssh_keys: "{{ site_automation_ssh_keys }}"
+users_admin_app_user: "{{ site_admin_app_user }}"
+# default('') sorgt für eine verständliche Fehlermeldung der Rolle,
+# falls die vault.yml noch nicht angelegt wurde.
+users_admin_app_password_hash: "{{ vault_admin_app_password_hash | default('') }}"
+users_admin_users: "{{ site_admin_users }}"
+users_ssh_group: "{{ site_ssh_group }}"
+users_kube_group: "{{ site_kube_group }}"
+users_admin_app_su_group: "{{ site_admin_app_su_group }}"
+
+ssh_hardening_port: "{{ site_ssh_port }}"
+# Nur diese Gruppen dürfen sich per SSH anmelden. Der Account "admin-app" ist
+# in keiner davon und wird zusätzlich explizit ausgeschlossen (DenyUsers).
+ssh_hardening_allow_groups:
+  - "{{ site_ssh_group }}"
+ssh_hardening_deny_users:
+  - "{{ site_admin_app_user }}"
+
+firewall_ssh_port: "{{ site_ssh_port }}"
+firewall_management_networks: "{{ site_management_networks }}"
+firewall_web_networks: "{{ site_web_networks }}"
+firewall_kube_api_networks: "{{ site_management_networks }}"
+firewall_cluster_cidr: "{{ site_cluster_cidr }}"
+firewall_service_cidr: "{{ site_service_cidr }}"
+
+k3s_server_cluster_cidr: "{{ site_cluster_cidr }}"
+k3s_server_service_cidr: "{{ site_service_cidr }}"
+k3s_server_kubeconfig_group: "{{ site_kube_group }}"
+k3s_server_tls_sans: "{{ groups['k3s_servers'] | map('extract', hostvars, 'ansible_host') | list }}"

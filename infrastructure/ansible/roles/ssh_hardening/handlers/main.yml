@@ -1,0 +1,18 @@
+---
+# Ein Neustart von sshd trennt bestehende Sitzungen NICHT - der laufende
+# Ansible-Lauf bleibt also verbunden.
+- name: Restart sshd
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: restarted
+
+- name: Restart ssh socket
+  ansible.builtin.systemd_service:
+    name: ssh.socket
+    state: restarted
+    daemon_reload: true
+
+- name: Restart fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    state: restarted
